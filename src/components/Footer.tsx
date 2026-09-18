@@ -121,7 +121,7 @@ export function Footer() {
 
                 <div className="mt-16 pt-8 sm:mt-20 lg:mt-24 flex flex-col items-center justify-between">
                     <p className="text-xs leading-5 text-muted-foreground">
-                        &copy; {currentYear} LPJ IT-Solutions, All rights reserved.
+                        &copy; {currentYear} MyVerein, All rights reserved.
                     </p>
                 </div>
             </div>
