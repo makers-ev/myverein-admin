@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/*
+ * Switches Tailwind's `dark:` variant from OS-preference-only
+ * (`prefers-color-scheme`) to class-based, matching the `class="dark"` that
+ * next-themes toggles on <html> (src/components/ThemeProvider.tsx).
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Central color source of truth -- same token set as
+ * _template_better-auth-website's globals.css, so this file is what you
+ * reskin per project (colors only, semantic names stay the same everywhere
+ * components reference them).
+ */
+:root {
+  --background: #ffffff;
+  --foreground: #2e3338;
+
+  --card: #ffffff;
+  --card-foreground: #2e3338;
+
+  --muted: #f1f2f4;
+  --muted-foreground: #6b7280;
+
+  --border: #e3e4e6;
+
+  --primary: #1e293b;
+  --primary-foreground: #ffffff;
+
+  --accent: #1e293b;
+  --accent-foreground: #ffffff;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  /* Chart series colors -- distinct hues, not shades of --primary, so
+     stacked segments stay tellable apart at a glance. */
+  --chart-new: #22c55e;
+  --chart-retained: #3b82f6;
+  --chart-reactivated: #a855f7;
+}
+
+.dark {
+  --background: #1e1e1e;
+  --foreground: #dcddde;
+
+  --card: #2a2a2b;
+  --card-foreground: #dcddde;
+
+  --muted: #2a2a2b;
+  --muted-foreground: #9a9a9d;
+
+  --border: #3a3a3c;
+
+  --primary: #64748b;
+  --primary-foreground: #ffffff;
+
+  --accent: #64748b;
+  --accent-foreground: #ffffff;
+
+  --destructive: #f87171;
+  --destructive-foreground: #1e1e1e;
+
+  --chart-new: #4ade80;
+  --chart-retained: #60a5fa;
+  --chart-reactivated: #c084fc;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-chart-new: var(--chart-new);
+  --color-chart-retained: var(--chart-retained);
+  --color-chart-reactivated: var(--chart-reactivated);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
