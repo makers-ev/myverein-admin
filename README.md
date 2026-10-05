@@ -81,8 +81,8 @@ _template_better-auth-admin/
 | Route | Access | Content |
 |---|---|---|
 | `/login` | public | Sign in, with 2FA follow-up. No sign-up. |
-| `/dashboard` | admin only | Account counts (total/admins/banned) + Active/New/Retained/Reactivated KPI cards with %-change, filterable by interval (daily/weekly) and period (7/30/90 days), a stacked activity bar chart, and a CSV export of everything currently shown |
-| `/users` | admin only | Searchable, paginated, role-filterable user list |
+| `/dashboard` | admin only | Account counts (total/admins/banned) + total number of clubs ("Vereine", backend `GET /admin/club-stats`, "–" on error) + Active/New/Retained/Reactivated KPI cards with %-change, filterable by interval (daily/weekly) and period (7/30/90 days), a stacked activity bar chart, and a CSV export of everything currently shown |
+| `/users` | admin only | Searchable, paginated, role-filterable user list, with a "Vereine" column (club names as chips, first 2 + "+N"; one batched backend `GET /admin/user-clubs` per page, column left empty if that call fails) |
 | `/users/new` | admin only | Create a user (name, email, password, role) |
 | `/users/[id]` | admin only | Role change, ban/unban, delete, active sessions + revoke, verified-status badge, manually mark as verified/unverified, resend verification email, send password-reset email |
 | `/notifications` | admin only | List of admin-authored notifications (target, DE title, deletable, created), delete per row |

@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { Ban, Repeat, Shield, UserCheck, UserPlus, Users } from 'lucide-react';
+import { Ban, Building2, Repeat, Shield, UserCheck, UserPlus, Users } from 'lucide-react';
 
 import { authClient, backendUrl } from '@/lib/auth-client';
 import { BarChart, type BarChartDatum } from '@/components/BarChart';
@@ -61,6 +61,18 @@ async function getActivityStats(interval: string, period: string, cookie: string
     return data;
 }
 
+/** `GET /admin/club-stats` (backend) -> total number of clubs, or null on failure (card then shows a dash). */
+async function getClubCount(cookie: string): Promise<number | null> {
+    const { data, error } = await authClient.$fetch<{ clubs: { total: number } }>(`${backendUrl}/admin/club-stats`, {
+        headers: { cookie },
+    });
+    if (error) {
+        console.error('[dashboard] GET /admin/club-stats failed', error);
+        return null;
+    }
+    return data?.clubs?.total ?? null;
+}
+
 function DeltaBadge({ changePercent }: { changePercent: number | null }) {
     if (changePercent === null) return null;
     const isPositive = changePercent >= 0;
@@ -80,7 +92,7 @@ function StatCard({
 }: {
     icon: typeof Users;
     label: string;
-    value: number;
+    value: number | string;
     changePercent?: number | null;
 }) {
     return (
@@ -112,9 +124,10 @@ export default async function DashboardPage({
     const incomingHeaders = await headers();
     const cookie = incomingHeaders.get('cookie') ?? '';
 
-    const [accounts, activity] = await Promise.all([
+    const [accounts, activity, clubCount] = await Promise.all([
         getAccountCounts({ headers: { cookie } }),
         getActivityStats(interval, period, cookie),
+        getClubCount(cookie),
     ]);
 
     const chartData: BarChartDatum[] =
@@ -137,10 +150,11 @@ export default async function DashboardPage({
             </div>
 
             <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Accounts</h2>
-            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard icon={Users} label="Total users" value={accounts.total} />
                 <StatCard icon={Shield} label="Admins" value={accounts.admins} />
                 <StatCard icon={Ban} label="Banned" value={accounts.banned} />
+                <StatCard icon={Building2} label="Vereine" value={clubCount ?? '–'} />
             </div>
 
             <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Users</h2>
