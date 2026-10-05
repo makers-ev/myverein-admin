@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ChevronDown, LogOut, Menu, Settings as SettingsIcon, X } from 'lucide-react';
 
 import { authClient, backendUrl } from '@/lib/auth-client';
+import { REGISTRATIONS_CHANGED_EVENT } from '@/lib/clubRegistrations';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
 
@@ -17,23 +18,38 @@ const NAV_LINKS = [
 ];
 
 /**
- * Open (pending) club registrations for the nav badge. Best effort: any
- * failure just hides the badge. The backend caps the list at 200 entries.
+ * Open (pending) club registrations for the nav badge, from the backend's
+ * `GET /admin/club-stats` (`registrations.pending`). Fetched on mount, when the
+ * tab becomes visible/focused again, and after a decision (REGISTRATIONS_CHANGED_EVENT).
+ * Best effort: on failure the previous value is kept.
  */
-function usePendingRegistrations(pathname: string): number {
+function usePendingRegistrations(): number {
     const [count, setCount] = useState(0);
     useEffect(() => {
         let cancelled = false;
-        fetch(`${backendUrl}/admin/club-registrations?status=pending`, { credentials: 'include' })
-            .then((res) => (res.ok ? (res.json() as Promise<{ data: unknown[] }>) : null))
-            .then((body) => {
-                if (!cancelled && body) setCount(body.data.length);
-            })
-            .catch(() => undefined);
+        function load() {
+            fetch(`${backendUrl}/admin/club-stats`, { credentials: 'include' })
+                .then((res) => (res.ok ? (res.json() as Promise<{ registrations?: { pending?: number } }>) : null))
+                .then((body) => {
+                    const pending = body?.registrations?.pending;
+                    if (!cancelled && typeof pending === 'number') setCount(pending);
+                })
+                .catch(() => undefined);
+        }
+        function onVisibility() {
+            if (document.visibilityState === 'visible') load();
+        }
+        load();
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('focus', load);
+        window.addEventListener(REGISTRATIONS_CHANGED_EVENT, load);
         return () => {
             cancelled = true;
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('focus', load);
+            window.removeEventListener(REGISTRATIONS_CHANGED_EVENT, load);
         };
-    }, [pathname]);
+    }, []);
     return count;
 }
 
@@ -41,7 +57,7 @@ function PendingBadge({ count }: { count: number }) {
     if (count === 0) return null;
     return (
         <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground">
-            {count >= 200 ? '200+' : count}
+            {count}
         </span>
     );
 }
@@ -61,7 +77,7 @@ export function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
-    const pendingCount = usePendingRegistrations(pathname);
+    const pendingCount = usePendingRegistrations();
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {

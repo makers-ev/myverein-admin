@@ -9,6 +9,9 @@ import { backendUrl } from '@/lib/auth-client';
  * `Cookie` header themselves (see `(protected)/layout.tsx`).
  */
 
+/** Window event fired after a decision so the Navbar badge refetches. */
+export const REGISTRATIONS_CHANGED_EVENT = 'club-registrations:changed';
+
 export type RegistrationStatus = 'draft' | 'pending' | 'needs_info' | 'approved' | 'rejected';
 
 export interface RegistrationDocument {

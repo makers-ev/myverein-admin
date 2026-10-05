@@ -65,9 +65,9 @@ _template_better-auth-admin/
 │   │       │   ├── UserFilters.tsx     # role <select>, same URL-query pattern as SearchBar
 │   │       │   ├── new/                # create-user form
 │   │       │   └── [id]/                # detail: role, ban/unban, delete, sessions
-│       ├── club-registrations/       # review queue for "Verein gruenden" applications
-│       │   ├── page.tsx               # queue, status filter tabs (default: pending)
-│       │   └── [id]/                  # detail + RegistrationReview.tsx (documents, slug, approve/request-info/reject)
+│   │       ├── club-registrations/   # review queue for "Verein gruenden" applications
+│   │       │   ├── page.tsx           # queue, status filter tabs (default: pending)
+│   │       │   └── [id]/              # detail + RegistrationReview.tsx (documents, slug, approve/request-info/reject)
 │   │       └── settings/               # the SIGNED-IN admin's own account (password, 2FA)
 │   └── proxy.ts                     # CSP + host-header validation, runs before every request
 ├── public/
@@ -88,7 +88,7 @@ _template_better-auth-admin/
 | `/notifications` | admin only | List of admin-authored notifications (target, DE title, deletable, created), delete per row |
 | `/notifications/new` | admin only | Create a notification: broadcast or a specific user (email search), per-language title/body (DE+EN required, any other supported language optional), "recipients can delete" toggle |
 | `/notifications/templates` | admin only | Override the per-language title/body of an automated, code-triggered notification (e.g. the welcome message sent on signup) per known key -- one field pair per supported language (`src/lib/supportedLanguages.ts`), DE+EN required, the rest optional; "Reset to default" reverts to the app's built-in text |
-| `/club-registrations` | admin only | Review queue of submitted club-founding applications (club, applicant, legal form, place, submitted at, status), filter Offen (pending, default) / Rückfrage / Freigegeben / Abgelehnt / Alle. The nav entry "Vereinsanträge" shows a badge with the pending count |
+| `/club-registrations` | admin only | Review queue of submitted club-founding applications (club, applicant, legal form, place, submitted at, status), filter Offen (pending, default) / Rückfrage / Freigegeben / Abgelehnt / Alle. The nav entry "Vereinsanträge" shows a badge with the pending count (backend `GET /admin/club-stats` -> `registrations.pending`; refetched on mount, tab focus/visibility and after a decision) |
 | `/club-registrations/[id]` | admin only | Review one application: club + register data (with cross-check hint), applicant, claimed role, private documents (authenticated fetch -> Blob download/preview, no public URL, access is audit-logged by the backend), highlighted duplicate hints, editable slug (empty = use suggestion; 422 invalid/reserved and 409 taken are shown). Actions only from `pending`: Freigeben (confirmation shows final slug, success shows club name + slug), Rückfrage (note required), Ablehnen (reason required); 409 "already decided" reloads the page |
 | `/settings` | admin only | The signed-in admin's own account: change password, enable/disable 2FA, sign out |
 | `404` | public | Not-found page (rendered for any unmatched route) |
@@ -243,6 +243,15 @@ created accounts are not auto-verified -- see [Known limitations](#known-limitat
 
 ## Known limitations
 
+- The club-registration review (`/club-registrations`) calls the backend
+  directly from the browser with `credentials: 'include'` (JSON actions and
+  the private document download). This admin app's origin must therefore be
+  listed in the backend's `WEB_ORIGIN` (comma-separated, see the backend's
+  `src/lib/trusted-origins.ts`), otherwise CORS blocks those calls.
+- PDF/image preview opens the document as a `blob:` URL in a new tab. Whether
+  the browser's built-in PDF viewer works there under this app's CSP
+  (`object-src 'none'`) is still to be checked in a browser; the download
+  button remains the fallback.
 - Users created here via `admin.createUser` are **not** auto-verified, unlike
   `seed-admin.ts`'s first-admin bootstrap (which patches `emailVerified`
   directly in the DB -- this app has no DB access). If the backend requires

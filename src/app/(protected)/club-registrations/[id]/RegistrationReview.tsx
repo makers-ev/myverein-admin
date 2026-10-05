@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Download, ExternalLink } from 'lucide-react';
 
@@ -11,6 +11,7 @@ import {
     formatBytes,
     formatDate,
     label,
+    REGISTRATIONS_CHANGED_EVENT,
     LEGAL_FORM_LABELS,
     STATUS_BADGE_CLASSES,
     STATUS_LABELS,
@@ -21,8 +22,7 @@ import {
 const ROLE_LABELS: Record<string, string> = {
     vorsitz: 'Vorsitz',
     stellv_vorsitz: 'Stellv. Vorsitz',
-    kasse: 'Kasse',
-    schriftfuehrung: 'Schriftführung',
+    schriftfuehrer: 'Schriftführung',
 };
 
 type DialogKind = 'approve' | 'request-info' | 'reject' | null;
@@ -46,6 +46,28 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Modal({ title, children, onClose, busy }: { title: string; children: React.ReactNode; onClose: () => void; busy: boolean }) {
+    const ref = useRef<HTMLDivElement>(null);
+    const busyRef = useRef(busy);
+    const onCloseRef = useRef(onClose);
+
+    useEffect(() => {
+        busyRef.current = busy;
+        onCloseRef.current = onClose;
+    });
+
+    useEffect(() => {
+        const previouslyFocused = document.activeElement as HTMLElement | null;
+        ref.current?.focus();
+        function onKey(e: KeyboardEvent) {
+            if (e.key === 'Escape' && !busyRef.current) onCloseRef.current();
+        }
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('keydown', onKey);
+            previouslyFocused?.focus?.();
+        };
+    }, []);
+
     return (
         <div
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
@@ -53,7 +75,14 @@ function Modal({ title, children, onClose, busy }: { title: string; children: Re
                 if (e.target === e.currentTarget && !busy) onClose();
             }}
         >
-            <div role="dialog" aria-modal="true" aria-label={title} className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-lg">
+            <div
+                ref={ref}
+                tabIndex={-1}
+                role="dialog"
+                aria-modal="true"
+                aria-label={title}
+                className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-lg outline-none"
+            >
                 <h3 className="text-lg font-semibold text-foreground">{title}</h3>
                 {children}
             </div>
@@ -69,6 +98,7 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
     const [note, setNote] = useState('');
     const [dialogError, setDialogError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const inFlight = useRef(false);
     const [notice, setNotice] = useState<string | null>(null);
     const [approved, setApproved] = useState<{ name: string; slug: string } | null>(null);
     const [docError, setDocError] = useState<string | null>(null);
@@ -79,9 +109,9 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
     const finalSlug = trimmedSlug || reg.slugSuggestion;
 
     function closeDialog() {
+        // The note is deliberately kept, so an accidental backdrop click/Escape does not lose typed text.
         setDialog(null);
         setDialogError(null);
-        setNote('');
     }
 
     /** 409 "already decided": reload the registration and tell the admin. Returns true if handled. */
@@ -89,6 +119,7 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
         if (err instanceof ApiError && err.status === 409 && /already been decided|not pending/i.test(err.message)) {
             closeDialog();
             setNotice('Dieser Antrag wurde bereits entschieden (z. B. von einer anderen Person). Die Ansicht wurde neu geladen.');
+            window.dispatchEvent(new Event(REGISTRATIONS_CHANGED_EVENT));
             router.refresh();
             return true;
         }
@@ -96,6 +127,8 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
     }
 
     async function approve() {
+        if (inFlight.current) return;
+        inFlight.current = true;
         setBusy(true);
         setDialogError(null);
         setSlugError(null);
@@ -107,21 +140,25 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
             const body = (await res.json()) as { data: { club: { name: string; slug: string } } };
             setApproved({ name: body.data.club.name, slug: body.data.club.slug });
             setDialog(null);
+            window.dispatchEvent(new Event(REGISTRATIONS_CHANGED_EVENT));
             router.refresh();
         } catch (err) {
             if (handleAlreadyDecided(err)) return;
             const message = err instanceof ApiError ? err.message : 'Freigabe fehlgeschlagen.';
-            if (err instanceof ApiError && err.status === 422) {
-                // invalid / reserved slug (or an unusable claimed role) -- show next to the slug field
+            // Only attribute the error to the slug field if an explicit slug was entered AND the message is about the slug.
+            const slugInvalid = err instanceof ApiError && err.status === 422 && /slug/i.test(message);
+            const slugTaken = err instanceof ApiError && err.status === 409 && /slug is already taken/i.test(message);
+            if (trimmedSlug && slugInvalid) {
                 setDialog(null);
                 setSlugError(`Ungültig oder reserviert: ${message}`);
-            } else if (err instanceof ApiError && err.status === 409) {
+            } else if (trimmedSlug && slugTaken) {
                 setDialog(null);
-                setSlugError(/slug/i.test(message) ? 'Dieser Slug ist bereits vergeben.' : message);
+                setSlugError('Dieser Slug ist bereits vergeben.');
             } else {
                 setDialogError(message);
             }
         } finally {
+            inFlight.current = false;
             setBusy(false);
         }
     }
@@ -132,17 +169,22 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
             setDialogError('Bitte einen Text angeben.');
             return;
         }
+        if (inFlight.current) return;
+        inFlight.current = true;
         setBusy(true);
         setDialogError(null);
         try {
             await adminFetch(`/${reg.id}/${kind}`, { method: 'POST', body: JSON.stringify({ note: trimmed }) });
+            setNote('');
             closeDialog();
+            window.dispatchEvent(new Event(REGISTRATIONS_CHANGED_EVENT));
             setNotice(kind === 'reject' ? 'Der Antrag wurde abgelehnt.' : 'Die Rückfrage wurde gesendet, der Antrag steht auf „Rückfrage“.');
             router.refresh();
         } catch (err) {
             if (handleAlreadyDecided(err)) return;
             setDialogError(err instanceof ApiError ? err.message : 'Aktion fehlgeschlagen.');
         } finally {
+            inFlight.current = false;
             setBusy(false);
         }
     }
@@ -181,7 +223,7 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
         }
     }
 
-    const canPreview = (d: RegistrationDocument) => d.mimeType === 'application/pdf' || d.mimeType.startsWith('image/');
+    const canPreview = (d: RegistrationDocument) => ['application/pdf', 'image/jpeg', 'image/png'].includes(d.mimeType);
 
     return (
         <div className="mt-4 space-y-5">
