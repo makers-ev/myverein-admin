@@ -34,8 +34,10 @@ export default async function NotificationsPage() {
         <div>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
-                    <p className="mt-1 text-sm text-muted-foreground">{notifications.length} total</p>
+                    <h1 className="text-2xl font-bold text-foreground">Plattform-Mitteilungen an alle Nutzer</h1>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Mitteilungen des Plattformbetreibers (nicht die Vereinsmitteilungen). {notifications.length} total
+                    </p>
                 </div>
                 <div className="flex items-center gap-3">
                     <Link

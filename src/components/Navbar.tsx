@@ -15,6 +15,7 @@ const NAV_LINKS = [
     { name: 'Users', href: '/users' },
     { name: 'Notifications', href: '/notifications' },
     { name: 'Vereinsanträge', href: '/club-registrations' },
+    { name: 'Warteschlange', href: '/queue' },
 ];
 
 /**
