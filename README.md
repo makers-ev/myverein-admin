@@ -40,6 +40,7 @@ _template_better-auth-admin/
 │   │   ├── clubRegistrations.ts  # types/labels + fetch helpers for the club-registration review API
 │   │   ├── adminApi.ts           # generic server GET / browser JSON helpers for /admin/* routes
 │   │   ├── jobQueue.ts           # types + server fetch for the job-queue stats API
+│   │   ├── dpa.ts                # types for the AV-Vertrag versions / acceptances API
 │   │   ├── retentionRuns.ts      # types for the retention run log
 │   │   └── resolveCallbackUrl.ts # open-redirect guard for the post-login redirect
 │   ├── config/
@@ -47,6 +48,7 @@ _template_better-auth-admin/
 │   ├── features/auth/components/
 │   │   └── TwoFactorPrompt.tsx    # 2FA challenge step shown mid-login
 │   ├── components/
+│   │   ├── Pager.tsx              # prev/next links for URL-query paging
 │   │   ├── Navbar.tsx / Footer.tsx / Logo.tsx
 │   │   ├── ThemeProvider.tsx / ThemeToggle.tsx
 │   │   └── BarChart.tsx           # hand-rolled stacked SVG bar chart, no charting dependency
@@ -72,6 +74,7 @@ _template_better-auth-admin/
 │   │       │   ├── page.tsx           # queue, status filter tabs (default: pending)
 │   │       │   └── [id]/              # detail + RegistrationReview.tsx (documents, slug, approve/request-info/reject)
 │   │       ├── queue/                # job queue overview (page, RetryJobButton, loading, error)
+│   │       ├── dpa/                  # AV-Vertrag versions + club acceptance (page, new/, [id]/, DpaForm)
 │   │       ├── retention-runs/       # read-only retention run log (page, loading, error)
 │   │       └── settings/               # the SIGNED-IN admin's own account (password, 2FA)
 │   └── proxy.ts                     # CSP + host-header validation, runs before every request
@@ -94,8 +97,11 @@ _template_better-auth-admin/
 | `/notifications/new` | admin only | Create a notification: broadcast or a specific user (email search), per-language title/body (DE+EN required, any other supported language optional), "recipients can delete" toggle |
 | `/notifications/templates` | admin only | Override the per-language title/body of an automated, code-triggered notification (e.g. the welcome message sent on signup) per known key -- one field pair per supported language (`src/lib/supportedLanguages.ts`), DE+EN required, the rest optional; "Reset to default" reverts to the app's built-in text |
 | `/club-registrations` | admin only | Review queue of submitted club-founding applications (club, applicant, legal form, place, submitted at, status), filter Offen (pending, default) / Rückfrage / Freigegeben / Abgelehnt / Alle. The nav entry "Vereinsanträge" shows a badge with the pending count (backend `GET /admin/club-stats` -> `registrations.pending`; refetched on mount, tab focus/visibility and after a decision) |
-| `/club-registrations/[id]` | admin only | Review one application: club + register data (with cross-check hint), applicant, claimed role, private documents (authenticated fetch -> Blob download/preview, no public URL, access is audit-logged by the backend), highlighted duplicate hints, editable slug (empty = use suggestion; 422 invalid/reserved and 409 taken are shown). Actions only from `pending`: Freigeben (confirmation shows final slug, success shows club name + slug), Rückfrage (note required), Ablehnen (reason required); 409 "already decided" reloads the page |
+| `/club-registrations/[id]` | admin only | Review one application: club + register data (with cross-check hint), applicant, claimed role, private documents (authenticated fetch -> Blob download/preview, no public URL, access is audit-logged by the backend), highlighted duplicate hints, editable slug (empty = use suggestion; 422 invalid/reserved and 409 taken are shown). Actions only from `pending`: Freigeben (confirmation shows final slug, success shows club name + slug), Rückfrage (note required), Ablehnen (reason required); 409 "already decided" reloads the page. Also shows the default deletion period of the proofs per status (static text: the registration detail does not expose retention info; the actual rule lives in `/retention-runs`'s backend) and the hint that the AV-Vertrag is confirmed by the club owner after approval |
 | `/queue` | admin only | "Warteschlange": job-queue overview from backend `GET /admin/jobs/stats` -- counts queued/running/failed/dead per job type (+ totals), oldest due jobs, last error (scrubbed by the backend, no personal data), latest dead jobs with "Erneut einplanen" (`POST /admin/jobs/:id/retry`, browser call with `credentials: 'include'`, so the backend's `WEB_ORIGIN` must list this origin). Loading, error and empty states included |
+| `/dpa` | admin only | "AV-Verträge": versions of the processor agreement (backend `GET /admin/dpa-versions`: v-number, title, draft/published, binding-from date, published date, accepted clubs / all clubs), gate banner (backend `DPA_REQUIRED` + grace days), and below it the clubs' acceptance status for a chosen published version (`GET /admin/dpa-acceptances`: accepted / missing / missing and blocked, date, signer, grace deadline with days left), filter Alle / Akzeptiert / Fehlt, version switch, paging |
+| `/dpa/new` | admin only | Create a draft: title, contract text, subprocessors (name, purpose, location), TOM annex, binding-from date |
+| `/dpa/[id]` | admin only | Draft: edit, delete, Veröffentlichen (confirmation; saves the form first, then `POST .../publish`; published versions are immutable and the owners get notified by the backend). Published: read-only view with checksum, text, subprocessors, annex |
 | `/retention-runs` | admin only | "Löschläufe": read-only log of the automatic retention runs (backend `GET /admin/retention-runs`, counters only, no personal data): start, scope (platform / club name), category, scanned / affected / errors (+ error code), badges Probelauf (dry run) / Echtlauf and Vorankündigung (notice run). Scope filter Plattform (default) / Vereine / Alle, paging, banner while the backend runs in dry-run mode |
 | `/settings` | admin only | The signed-in admin's own account: change password, enable/disable 2FA, sign out |
 | `404` | public | Not-found page (rendered for any unmatched route) |

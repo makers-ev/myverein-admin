@@ -25,6 +25,14 @@ const ROLE_LABELS: Record<string, string> = {
     schriftfuehrer: 'Schriftführung',
 };
 
+const RETENTION_HINTS: Record<string, string> = {
+    approved: '180 Tage ab der Freigabe.',
+    rejected: '90 Tage ab der Entscheidung.',
+    draft: '30 Tage ab der letzten Änderung, wenn der Antrag nie eingereicht wird.',
+    pending: 'nach Freigabe 180 Tage, nach Ablehnung 90 Tage.',
+    needs_info: 'nach Freigabe 180 Tage, nach Ablehnung 90 Tage.',
+};
+
 type DialogKind = 'approve' | 'request-info' | 'reject' | null;
 
 function Field({ name, children }: { name: string; children: React.ReactNode }) {
@@ -354,6 +362,9 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
                 )}
                 {docError && <p role="alert" className="mt-3 text-sm text-destructive">{docError}</p>}
                 <p className="mt-3 text-xs text-muted-foreground">Jeder Abruf eines Dokuments wird im Audit-Log protokolliert.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                    Löschfrist der Nachweise (Standardfrist): {RETENTION_HINTS[reg.status] ?? RETENTION_HINTS.pending}
+                </p>
             </Section>
 
             {reg.status === 'approved' && (
@@ -361,11 +372,13 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
                     <p className="text-sm text-foreground">
                         Slug: <code className="font-mono">{reg.clubSlug ?? '—'}</code>
                     </p>
+                    <p className="mt-2 text-xs text-muted-foreground">AV-Vertrag wird vom Owner nach Freigabe bestätigt.</p>
                 </Section>
             )}
 
             {isPending ? (
                 <Section title="Entscheidung">
+                    <p className="mb-3 text-xs text-muted-foreground">AV-Vertrag wird vom Owner nach Freigabe bestätigt.</p>
                     <label htmlFor="slug" className="block text-sm font-medium text-foreground">
                         Slug (optional)
                     </label>
