@@ -38,7 +38,9 @@ _template_better-auth-admin/
 │   ├── lib/
 │   │   ├── auth-client.ts        # createAuthClient() + adminClient() + twoFactorClient()
 │   │   ├── clubRegistrations.ts  # types/labels + fetch helpers for the club-registration review API
+│   │   ├── adminApi.ts           # generic server GET / browser JSON helpers for /admin/* routes
 │   │   ├── jobQueue.ts           # types + server fetch for the job-queue stats API
+│   │   ├── retentionRuns.ts      # types for the retention run log
 │   │   └── resolveCallbackUrl.ts # open-redirect guard for the post-login redirect
 │   ├── config/
 │   │   └── site.ts                # branding/copy -- the one file to edit when reusing this template
@@ -70,6 +72,7 @@ _template_better-auth-admin/
 │   │       │   ├── page.tsx           # queue, status filter tabs (default: pending)
 │   │       │   └── [id]/              # detail + RegistrationReview.tsx (documents, slug, approve/request-info/reject)
 │   │       ├── queue/                # job queue overview (page, RetryJobButton, loading, error)
+│   │       ├── retention-runs/       # read-only retention run log (page, loading, error)
 │   │       └── settings/               # the SIGNED-IN admin's own account (password, 2FA)
 │   └── proxy.ts                     # CSP + host-header validation, runs before every request
 ├── public/
@@ -93,6 +96,7 @@ _template_better-auth-admin/
 | `/club-registrations` | admin only | Review queue of submitted club-founding applications (club, applicant, legal form, place, submitted at, status), filter Offen (pending, default) / Rückfrage / Freigegeben / Abgelehnt / Alle. The nav entry "Vereinsanträge" shows a badge with the pending count (backend `GET /admin/club-stats` -> `registrations.pending`; refetched on mount, tab focus/visibility and after a decision) |
 | `/club-registrations/[id]` | admin only | Review one application: club + register data (with cross-check hint), applicant, claimed role, private documents (authenticated fetch -> Blob download/preview, no public URL, access is audit-logged by the backend), highlighted duplicate hints, editable slug (empty = use suggestion; 422 invalid/reserved and 409 taken are shown). Actions only from `pending`: Freigeben (confirmation shows final slug, success shows club name + slug), Rückfrage (note required), Ablehnen (reason required); 409 "already decided" reloads the page |
 | `/queue` | admin only | "Warteschlange": job-queue overview from backend `GET /admin/jobs/stats` -- counts queued/running/failed/dead per job type (+ totals), oldest due jobs, last error (scrubbed by the backend, no personal data), latest dead jobs with "Erneut einplanen" (`POST /admin/jobs/:id/retry`, browser call with `credentials: 'include'`, so the backend's `WEB_ORIGIN` must list this origin). Loading, error and empty states included |
+| `/retention-runs` | admin only | "Löschläufe": read-only log of the automatic retention runs (backend `GET /admin/retention-runs`, counters only, no personal data): start, scope (platform / club name), category, scanned / affected / errors (+ error code), badges Probelauf (dry run) / Echtlauf and Vorankündigung (notice run). Scope filter Plattform (default) / Vereine / Alle, paging, banner while the backend runs in dry-run mode |
 | `/settings` | admin only | The signed-in admin's own account: change password, enable/disable 2FA, sign out |
 | `404` | public | Not-found page (rendered for any unmatched route) |
 
