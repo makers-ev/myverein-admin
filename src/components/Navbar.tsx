@@ -16,6 +16,8 @@ const NAV_LINKS = [
     { name: 'Notifications', href: '/notifications' },
     { name: 'Vereinsanträge', href: '/club-registrations' },
     { name: 'Warteschlange', href: '/queue' },
+    { name: 'AV-Verträge', href: '/dpa' },
+    { name: 'Löschläufe', href: '/retention-runs' },
 ];
 
 /**
