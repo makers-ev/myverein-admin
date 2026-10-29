@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Download, ExternalLink } from 'lucide-react';
 
@@ -55,6 +55,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Modal({ title, children, onClose, busy }: { title: string; children: React.ReactNode; onClose: () => void; busy: boolean }) {
     const ref = useRef<HTMLDivElement>(null);
+    const titleId = useId();
     const busyRef = useRef(busy);
     const onCloseRef = useRef(onClose);
 
@@ -67,7 +68,31 @@ function Modal({ title, children, onClose, busy }: { title: string; children: Re
         const previouslyFocused = document.activeElement as HTMLElement | null;
         ref.current?.focus();
         function onKey(e: KeyboardEvent) {
-            if (e.key === 'Escape' && !busyRef.current) onCloseRef.current();
+            if (e.key === 'Escape' && !busyRef.current) {
+                onCloseRef.current();
+                return;
+            }
+            // Focus trap: Tab / Shift+Tab cycle inside the dialog, never reach the page behind it.
+            if (e.key === 'Tab' && ref.current) {
+                const items = Array.from(ref.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+                if (items.length === 0) {
+                    e.preventDefault();
+                    return;
+                }
+                const first = items[0]!;
+                const last = items[items.length - 1]!;
+                const active = document.activeElement;
+                if (e.shiftKey && (active === first || active === ref.current)) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && active === last) {
+                    e.preventDefault();
+                    first.focus();
+                } else if (!ref.current.contains(active)) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            }
         }
         document.addEventListener('keydown', onKey);
         return () => {
@@ -88,10 +113,10 @@ function Modal({ title, children, onClose, busy }: { title: string; children: Re
                 tabIndex={-1}
                 role="dialog"
                 aria-modal="true"
-                aria-label={title}
+                aria-labelledby={titleId}
                 className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-lg outline-none"
             >
-                <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+                <h3 id={titleId} className="text-lg font-semibold text-foreground">{title}</h3>
                 {children}
             </div>
         </div>
@@ -231,7 +256,10 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
         }
     }
 
-    const canPreview = (d: RegistrationDocument) => ['application/pdf', 'image/jpeg', 'image/png'].includes(d.mimeType);
+    // Decision (DS4): the strict CSP (`object-src 'none'`, inherited by a blob: document) keeps the browser's built-in PDF viewer
+    // from rendering, and loosening it for a preview is not worth the attack surface. Images preview fine under `img-src blob:`;
+    // PDFs are download-only (the button says so).
+    const canPreview = (d: RegistrationDocument) => ['image/jpeg', 'image/png'].includes(d.mimeType);
 
     return (
         <div className="mt-4 space-y-5">
@@ -334,7 +362,8 @@ export function RegistrationReview({ registration: reg }: { registration: Regist
                                         {label(DOCUMENT_KIND_LABELS, d.kind)} · {d.mimeType} · {formatBytes(d.sizeBytes)}
                                     </p>
                                 </div>
-                                <div className="flex gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {d.mimeType === 'application/pdf' && <span className="text-xs text-muted-foreground">PDF: nur Download (keine Vorschau aus Sicherheitsgründen)</span>}
                                     {canPreview(d) && (
                                         <button
                                             type="button"
