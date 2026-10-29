@@ -14,6 +14,7 @@ const NAV_LINKS = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Users', href: '/users' },
     { name: 'Notifications', href: '/notifications' },
+    { name: 'Vereine', href: '/clubs' },
     { name: 'Vereinsanträge', href: '/club-registrations' },
     { name: 'Warteschlange', href: '/queue' },
     { name: 'AV-Verträge', href: '/dpa' },
@@ -109,7 +110,7 @@ export function Navbar() {
                         <Logo />
                     </Link>
 
-                    <div className="hidden md:flex md:gap-6">
+                    <div className="hidden lg:flex lg:gap-5">
                         {NAV_LINKS.map((link) => {
                             const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
                             return (
@@ -132,7 +133,7 @@ export function Navbar() {
                     <ThemeToggle />
 
                     {!isPending && session && (
-                        <div className="relative hidden md:block" ref={menuRef}>
+                        <div className="relative hidden lg:block" ref={menuRef}>
                             <button
                                 onClick={() => setIsMenuOpen((v) => !v)}
                                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
@@ -172,7 +173,9 @@ export function Navbar() {
                     )}
 
                     <button
-                        className="flex md:hidden items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="flex min-h-11 min-w-11 lg:hidden items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-expanded={isMobileOpen}
+                        aria-label={isMobileOpen ? 'Menü schließen' : 'Menü öffnen'}
                         onClick={() => setIsMobileOpen((v) => !v)}
                     >
                         {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -181,7 +184,7 @@ export function Navbar() {
             </div>
 
             {isMobileOpen && (
-                <div className="md:hidden border-t border-border bg-background px-4 py-4 shadow-lg">
+                <div className="lg:hidden border-t border-border bg-background px-4 py-4 shadow-lg">
                     <div className="flex flex-col space-y-3">
                         {NAV_LINKS.map((link) => (
                             <Link

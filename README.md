@@ -90,13 +90,14 @@ _template_better-auth-admin/
 | Route | Access | Content |
 |---|---|---|
 | `/login` | public | Sign in, with 2FA follow-up. No sign-up. |
-| `/dashboard` | admin only | Account counts (total/admins/banned) + total number of clubs ("Vereine", backend `GET /admin/club-stats`, "–" on error) + Active/New/Retained/Reactivated KPI cards with %-change, filterable by interval (daily/weekly) and period (7/30/90 days), a stacked activity bar chart, and a CSV export of everything currently shown |
+| `/dashboard` | admin only | Account counts (total/admins/banned) + a separate "Vereine" section with the club count and the open club registrations (both from backend `GET /admin/club-stats`, "–" on error; the cards link to `/clubs` and `/club-registrations`) + Active/New/Retained/Reactivated KPI cards with %-change, filterable by interval (daily/weekly) and period (7/30/90 days), a stacked activity bar chart, and a CSV export of everything currently shown |
 | `/users` | admin only | Searchable, paginated, role-filterable user list, with a "Vereine" column (club names as chips, first 2 + "+N"; one batched backend `GET /admin/user-clubs` per page, column left empty if that call fails) |
 | `/users/new` | admin only | Create a user (name, email, password, role) |
 | `/users/[id]` | admin only | Role change, ban/unban, delete (runs through the backend erasure process via `DELETE /admin/users/:id`; blockers such as sole owner or legal hold are shown), active sessions + revoke, verified-status badge, manually mark as verified/unverified, resend verification email, send password-reset email |
 | `/notifications` | admin only | Labelled "Plattform-Mitteilungen an alle Nutzer" (platform operator messages, not club announcements). List of admin-authored notifications (target, DE title, deletable, created), delete per row |
 | `/notifications/new` | admin only | Create a notification: broadcast or a specific user (email search), per-language title/body (DE+EN required, any other supported language optional), "recipients can delete" toggle |
 | `/notifications/templates` | admin only | Override the per-language title/body of an automated, code-triggered notification (e.g. the welcome message sent on signup) per known key -- one field pair per supported language (`src/lib/supportedLanguages.ts`), DE+EN required, the rest optional; "Reset to default" reverts to the app's built-in text |
+| `/clubs` | admin only | "Vereine" (Wave 14 DS4): searchable, paginated list of all clubs (name, slug, storage used of quota, link to `/club-storage`), built on the backend's `GET /admin/club-storage` (the only admin route that lists clubs); a page number beyond the last page redirects to the last page. Member counts and lifecycle state need an own route (Wave 15) |
 | `/club-registrations` | admin only | Review queue of submitted club-founding applications (club, applicant, legal form, place, submitted at, status), filter Offen (pending, default) / Rückfrage / Freigegeben / Abgelehnt / Alle. The nav entry "Vereinsanträge" shows a badge with the pending count (backend `GET /admin/club-stats` -> `registrations.pending`; refetched on mount, tab focus/visibility and after a decision) |
 | `/club-registrations/[id]` | admin only | Review one application: club + register data (with cross-check hint), applicant, claimed role, private documents (authenticated fetch -> Blob download/preview, no public URL, access is audit-logged by the backend), highlighted duplicate hints, editable slug (empty = use suggestion; 422 invalid/reserved and 409 taken are shown). Actions only from `pending`: Freigeben (confirmation shows final slug, success shows club name + slug), Rückfrage (note required), Ablehnen (reason required); 409 "already decided" reloads the page. Also shows the default deletion period of the proofs per status (static text: the registration detail does not expose retention info; the actual rule lives in `/retention-runs`'s backend) and the hint that the AV-Vertrag is confirmed by the club owner after approval |
 | `/queue` | admin only | "Warteschlange": job-queue overview from backend `GET /admin/jobs/stats` -- counts queued/running/failed/dead per job type (+ totals), oldest due jobs, last error (scrubbed by the backend, no personal data), latest dead jobs with "Erneut einplanen" (`POST /admin/jobs/:id/retry`, browser call with `credentials: 'include'`, so the backend's `WEB_ORIGIN` must list this origin). Loading, error and empty states included |
@@ -263,10 +264,12 @@ created accounts are not auto-verified -- see [Known limitations](#known-limitat
   the private document download). This admin app's origin must therefore be
   listed in the backend's `WEB_ORIGIN` (comma-separated, see the backend's
   `src/lib/trusted-origins.ts`), otherwise CORS blocks those calls.
-- PDF/image preview opens the document as a `blob:` URL in a new tab. Whether
-  the browser's built-in PDF viewer works there under this app's CSP
-  (`object-src 'none'`) is still to be checked in a browser; the download
-  button remains the fallback.
+- PDF preview is intentionally not offered (Wave 14 DS4 decision): the strict CSP
+  (`object-src 'none'`, inherited by the `blob:` document) keeps the browser's
+  built-in PDF viewer from rendering, and loosening it is not worth the attack
+  surface. Images (JPEG/PNG) still open in a new tab via `blob:` (`img-src blob:`
+  is allowed); PDFs are download-only and the UI says so next to the button.
+  Dialog focus: the review dialogs trap Tab, close on Escape and restore focus.
 - Users created here via `admin.createUser` are **not** auto-verified, unlike
   `seed-admin.ts`'s first-admin bootstrap (which patches `emailVerified`
   directly in the DB -- this app has no DB access). If the backend requires
