@@ -97,7 +97,7 @@ export default async function ClubStoragePage({ searchParams }: { searchParams: 
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex justify-end">
-                                                <QuotaEditor clubId={r.clubId} clubName={r.name} quotaBytes={r.quotaBytes} customQuota={r.customQuota} defaultQuotaBytes={body?.defaultQuotaBytes ?? r.quotaBytes} />
+                                                <QuotaEditor clubId={r.clubId} clubName={r.name} quotaBytes={r.quotaBytes} usedBytes={r.usedBytes} customQuota={r.customQuota} defaultQuotaBytes={body?.defaultQuotaBytes ?? r.quotaBytes} />
                                             </div>
                                         </td>
                                     </tr>

@@ -7,13 +7,16 @@ import { adminJson } from '@/lib/adminApi';
 import { type QuotaUnit, formatBytes, parseQuota } from '@/lib/clubStorage';
 
 /** Sets or resets (back to the default) the storage quota of one club; the backend writes the audit entry. */
-export function QuotaEditor({ clubId, clubName, quotaBytes, customQuota, defaultQuotaBytes }: { clubId: string; clubName: string; quotaBytes: number; customQuota: boolean; defaultQuotaBytes: number }) {
+export function QuotaEditor({ clubId, clubName, quotaBytes, usedBytes, customQuota, defaultQuotaBytes }: { clubId: string; clubName: string; quotaBytes: number; usedBytes: number; customQuota: boolean; defaultQuotaBytes: number }) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [value, setValue] = useState('');
     const [unit, setUnit] = useState<QuotaUnit>('GB');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const parsed = parseQuota(value, unit);
+    const belowUsage = parsed !== null && parsed < usedBytes;
 
     async function save(quota: number | null) {
         setBusy(true);
@@ -78,6 +81,16 @@ export function QuotaEditor({ clubId, clubName, quotaBytes, customQuota, default
                     Abbrechen
                 </button>
             </div>
+            {belowUsage && (
+                <span role="status" className="max-w-64 text-right text-xs text-amber-600 dark:text-amber-400">
+                    Achtung: Das neue Kontingent ({formatBytes(parsed)}) liegt unter dem aktuellen Verbrauch ({formatBytes(usedBytes)}). Der Verein kann dann nichts mehr hochladen oder erzeugen, bis Speicher frei wird.
+                </span>
+            )}
+            {customQuota && defaultQuotaBytes < usedBytes && (
+                <span role="status" className="max-w-64 text-right text-xs text-amber-600 dark:text-amber-400">
+                    Der Standard ({formatBytes(defaultQuotaBytes)}) liegt unter dem aktuellen Verbrauch.
+                </span>
+            )}
             {error && (
                 <span role="alert" className="text-xs text-destructive">
                     {error}
