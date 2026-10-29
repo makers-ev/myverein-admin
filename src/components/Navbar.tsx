@@ -17,6 +17,7 @@ const NAV_LINKS = [
     { name: 'Vereinsanträge', href: '/club-registrations' },
     { name: 'Warteschlange', href: '/queue' },
     { name: 'AV-Verträge', href: '/dpa' },
+    { name: 'Speicher', href: '/club-storage' },
     { name: 'Löschläufe', href: '/retention-runs' },
 ];
 

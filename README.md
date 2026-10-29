@@ -42,6 +42,7 @@ _template_better-auth-admin/
 │   │   ├── jobQueue.ts           # types + server fetch for the job-queue stats API
 │   │   ├── dpa.ts                # types for the AV-Vertrag versions / acceptances API
 │   │   ├── retentionRuns.ts      # types for the retention run log
+│   │   ├── clubStorage.ts        # types + quota helpers for the per-club storage overview
 │   │   └── resolveCallbackUrl.ts # open-redirect guard for the post-login redirect
 │   ├── config/
 │   │   └── site.ts                # branding/copy -- the one file to edit when reusing this template
@@ -102,6 +103,7 @@ _template_better-auth-admin/
 | `/dpa` | admin only | "AV-Verträge": versions of the processor agreement (backend `GET /admin/dpa-versions`: v-number, title, draft/published, binding-from date, published date, accepted clubs / all clubs), gate banner (backend `DPA_REQUIRED` + grace days), and below it the clubs' acceptance status for a chosen published version (`GET /admin/dpa-acceptances`: accepted / missing / missing and blocked, date, signer, grace deadline with days left), filter Alle / Akzeptiert / Fehlt, version switch, paging |
 | `/dpa/new` | admin only | Create a draft: title, contract text, subprocessors (name, purpose, location), TOM annex, binding-from date |
 | `/dpa/[id]` | admin only | Draft: edit, delete, Veröffentlichen (confirmation; saves the form first, then `POST .../publish`; published versions are immutable and the owners get notified by the backend). Published: read-only view with checksum, text, subprocessors, annex |
+| `/club-storage` | admin only | "Speicher je Verein": storage use and quota per club from the backend's `GET /admin/club-storage` (club, used, quota with "angepasst" badge for a custom quota, usage bar `<progress>` with 80 % / over-quota colouring, "Kontingent erreicht" badge and a banner when clubs on the page are at or over the limit; search by club name, paging, default quota shown). "Ändern" opens an inline editor (number + MB/GB, up to 1 TB) that sends `PATCH /admin/club-storage/:clubId`; "Standard" resets the custom quota (`quotaBytes: null`). The backend writes the audit entry. The editor warns (does not block) when the new quota or the default is below the current usage. Numbers only, never document content; loading, error and empty states included (`src/lib/clubStorage.ts` holds the tested helpers) |
 | `/retention-runs` | admin only | "Löschläufe": read-only log of the automatic retention runs (backend `GET /admin/retention-runs`, counters only, no personal data): start, scope (platform / club name), category, scanned / affected / errors (+ error code), badges Probelauf (dry run) / Echtlauf and Vorankündigung (notice run). Scope filter Plattform (default) / Vereine / Alle, paging, banner while the backend runs in dry-run mode |
 | `/settings` | admin only | The signed-in admin's own account: change password, enable/disable 2FA, sign out |
 | `404` | public | Not-found page (rendered for any unmatched route) |
