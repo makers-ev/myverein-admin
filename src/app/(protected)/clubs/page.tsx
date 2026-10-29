@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import { Pager } from '@/components/Pager';
 import { adminGetServer } from '@/lib/adminApi';
@@ -20,6 +21,11 @@ export default async function ClubsPage({ searchParams }: { searchParams: Promis
     const params = new URLSearchParams({ page: String(pageNum), pageSize: String(STORAGE_PAGE_SIZE) });
     if (query) params.set('q', query);
     const { body, error } = await adminGetServer<ClubStorageList>(`/admin/club-storage?${params}`, incomingHeaders.get('cookie') ?? '');
+    // Page number beyond the last page while clubs exist: clamp to the last page instead of showing a misleading empty table.
+    if (body && body.total > 0) {
+        const lastPage = Math.ceil(body.total / STORAGE_PAGE_SIZE);
+        if (pageNum > lastPage) redirect(`/clubs?${new URLSearchParams({ ...(query ? { q: query } : {}), page: String(lastPage) })}`);
+    }
     const rows = body?.data ?? [];
     const hrefFor = (p: number) => `/clubs?${new URLSearchParams({ ...(query ? { q: query } : {}), page: String(p) })}`;
 
