@@ -2,11 +2,32 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 
-import { authClient } from '@/lib/auth-client';
+import { authClient, backendUrl } from '@/lib/auth-client';
 import { SearchBar } from './SearchBar';
 import { UserFilters } from './UserFilters';
 
 const PAGE_SIZE = 20;
+const MAX_CHIPS = 2;
+
+interface UserClub {
+    clubId: string;
+    name: string;
+    slug: string;
+}
+
+/** One batched `GET /admin/user-clubs` for the whole page (no N+1). Returns null on failure -> column stays empty. */
+async function getUserClubs(userIds: string[], cookie: string): Promise<Record<string, UserClub[]> | null> {
+    if (userIds.length === 0) return {};
+    const { data, error } = await authClient.$fetch<{ data: Record<string, UserClub[]> }>(
+        `${backendUrl}/admin/user-clubs?userIds=${encodeURIComponent(userIds.join(','))}`,
+        { headers: { cookie } },
+    );
+    if (error) {
+        console.error('[users] GET /admin/user-clubs failed', error);
+        return null;
+    }
+    return data?.data ?? null;
+}
 
 export default async function UsersPage({
     searchParams,
@@ -30,6 +51,10 @@ export default async function UsersPage({
     });
 
     const users = data?.users ?? [];
+    const clubsByUser = await getUserClubs(
+        users.map((u) => u.id),
+        incomingHeaders.get('cookie') ?? '',
+    );
     const total = data?.total ?? 0;
     const hasNextPage = pageNum * PAGE_SIZE < total;
     const query = `${q ? `&q=${encodeURIComponent(q)}` : ''}${role && role !== 'all' ? `&role=${role}` : ''}`;
@@ -55,20 +80,21 @@ export default async function UsersPage({
                 <UserFilters />
             </div>
 
-            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+            <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-card">
                 <table className="w-full text-left text-sm">
                     <thead className="border-b border-border bg-muted/50 text-muted-foreground">
                         <tr>
                             <th className="px-4 py-3 font-medium">Name</th>
                             <th className="px-4 py-3 font-medium">Email</th>
                             <th className="px-4 py-3 font-medium">Role</th>
+                            <th className="px-4 py-3 font-medium">Vereine</th>
                             <th className="px-4 py-3 font-medium">Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         {users.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                                     No users found.
                                 </td>
                             </tr>
@@ -89,6 +115,32 @@ export default async function UsersPage({
                                         >
                                             {user.role ?? 'user'}
                                         </span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {clubsByUser &&
+                                            ((clubsByUser[user.id] ?? []).length === 0 ? (
+                                                <span className="text-xs text-muted-foreground">—</span>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {clubsByUser[user.id]!.slice(0, MAX_CHIPS).map((c) => (
+                                                        <span
+                                                            key={c.clubId}
+                                                            className="max-w-40 truncate rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-foreground"
+                                                            title={c.name}
+                                                        >
+                                                            {c.name}
+                                                        </span>
+                                                    ))}
+                                                    {clubsByUser[user.id]!.length > MAX_CHIPS && (
+                                                        <span
+                                                            className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                                                            title={clubsByUser[user.id]!.slice(MAX_CHIPS).map((c) => c.name).join(', ')}
+                                                        >
+                                                            +{clubsByUser[user.id]!.length - MAX_CHIPS}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
                                     </td>
                                     <td className="px-4 py-3">
                                         {user.banned ? (

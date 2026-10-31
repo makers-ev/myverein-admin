@@ -82,7 +82,8 @@ export function UserDetail({ user, sessions, currentUserId }: UserDetailProps) {
     async function handleDelete() {
         if (!confirm(`Delete ${user.email}? This cannot be undone.`)) return;
         await withBusy(async () => {
-            const { error: deleteError } = await authClient.admin.removeUser({ userId: user.id });
+            // Better Auth's removeUser is disabled on the backend (it skips the erasure process); this route runs it first.
+            const { error: deleteError } = await authClient.$fetch(`${backendUrl}/admin/users/${encodeURIComponent(user.id)}`, { method: 'DELETE' });
             if (deleteError) {
                 setError(deleteError.message ?? 'Unable to delete user.');
                 return;

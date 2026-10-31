@@ -12,10 +12,10 @@
  * change one and rebuild, a running server won't pick it up live.
  */
 export const siteConfig = {
-  appName: process.env.NEXT_PUBLIC_APP_NAME ?? "Admin",
+  appName: process.env.NEXT_PUBLIC_APP_NAME ?? "MyVerein Admin",
   /** Path under /public. Swap the file at that path, or override this to point elsewhere. */
-  logoSrc: process.env.NEXT_PUBLIC_LOGO_SRC ?? "/lpj-its.svg",
-  logoAlt: process.env.NEXT_PUBLIC_APP_NAME ?? "LPJ IT-Solutions",
+  logoSrc: process.env.NEXT_PUBLIC_LOGO_SRC ?? "/logo.svg",
+  logoAlt: process.env.NEXT_PUBLIC_APP_NAME ?? "MyVerein Admin",
   tagline: process.env.NEXT_PUBLIC_APP_TAGLINE ?? "User & access management",
   loginTitle: process.env.NEXT_PUBLIC_LOGIN_TITLE ?? "Sign in",
   loginSubtitle: process.env.NEXT_PUBLIC_LOGIN_SUBTITLE ?? "Admin access only.",

@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
-import { Ban, Repeat, Shield, UserCheck, UserPlus, Users } from 'lucide-react';
+import Link from 'next/link';
+import { Ban, Building2, ClipboardList, Repeat, Shield, UserCheck, UserPlus, Users } from 'lucide-react';
 
 import { authClient, backendUrl } from '@/lib/auth-client';
 import { BarChart, type BarChartDatum } from '@/components/BarChart';
@@ -61,6 +62,18 @@ async function getActivityStats(interval: string, period: string, cookie: string
     return data;
 }
 
+/** `GET /admin/club-stats` (backend) -> number of clubs and open club registrations; null fields on failure (cards then show a dash). */
+async function getClubStats(cookie: string): Promise<{ total: number | null; pending: number | null }> {
+    const { data, error } = await authClient.$fetch<{ clubs: { total: number }; registrations?: { pending?: number } }>(`${backendUrl}/admin/club-stats`, {
+        headers: { cookie },
+    });
+    if (error) {
+        console.error('[dashboard] GET /admin/club-stats failed', error);
+        return { total: null, pending: null };
+    }
+    return { total: data?.clubs?.total ?? null, pending: data?.registrations?.pending ?? null };
+}
+
 function DeltaBadge({ changePercent }: { changePercent: number | null }) {
     if (changePercent === null) return null;
     const isPositive = changePercent >= 0;
@@ -77,14 +90,17 @@ function StatCard({
     label,
     value,
     changePercent,
+    href,
 }: {
     icon: typeof Users;
     label: string;
-    value: number;
+    value: number | string;
     changePercent?: number | null;
+    /** Makes the whole card a link to the matching list. */
+    href?: string;
 }) {
-    return (
-        <div className="rounded-xl border border-border bg-card p-6">
+    const card = (
+        <div className={`h-full rounded-xl border border-border bg-card p-6 ${href ? 'transition-colors hover:bg-muted/40' : ''}`}>
             <div className="flex items-center justify-between text-muted-foreground">
                 <div className="flex items-center gap-3">
                     <Icon size={18} />
@@ -92,8 +108,15 @@ function StatCard({
                 </div>
                 {changePercent !== undefined && <DeltaBadge changePercent={changePercent} />}
             </div>
-            <p className="mt-3 text-3xl font-bold text-foreground">{value}</p>
+            <p className="mt-3 text-3xl font-bold tabular-nums text-foreground">{value}</p>
         </div>
+    );
+    return href ? (
+        <Link href={href} className="block rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+            {card}
+        </Link>
+    ) : (
+        card
     );
 }
 
@@ -112,9 +135,10 @@ export default async function DashboardPage({
     const incomingHeaders = await headers();
     const cookie = incomingHeaders.get('cookie') ?? '';
 
-    const [accounts, activity] = await Promise.all([
+    const [accounts, activity, clubStats] = await Promise.all([
         getAccountCounts({ headers: { cookie } }),
         getActivityStats(interval, period, cookie),
+        getClubStats(cookie),
     ]);
 
     const chartData: BarChartDatum[] =
@@ -138,9 +162,15 @@ export default async function DashboardPage({
 
             <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Accounts</h2>
             <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <StatCard icon={Users} label="Total users" value={accounts.total} />
+                <StatCard icon={Users} label="Total users" value={accounts.total} href="/users" />
                 <StatCard icon={Shield} label="Admins" value={accounts.admins} />
                 <StatCard icon={Ban} label="Banned" value={accounts.banned} />
+            </div>
+
+            <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Vereine</h2>
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <StatCard icon={Building2} label="Vereine" value={clubStats.total ?? '–'} href="/clubs" />
+                <StatCard icon={ClipboardList} label="Offene Vereinsanträge" value={clubStats.pending ?? '–'} href="/club-registrations" />
             </div>
 
             <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Users</h2>

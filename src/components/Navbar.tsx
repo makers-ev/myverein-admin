@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ChevronDown, LogOut, Menu, Settings as SettingsIcon, X } from 'lucide-react';
 
-import { authClient } from '@/lib/auth-client';
+import { authClient, backendUrl } from '@/lib/auth-client';
+import { REGISTRATIONS_CHANGED_EVENT } from '@/lib/clubRegistrations';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import Logo from '@/components/Logo';
 
@@ -13,7 +14,58 @@ const NAV_LINKS = [
     { name: 'Dashboard', href: '/dashboard' },
     { name: 'Users', href: '/users' },
     { name: 'Notifications', href: '/notifications' },
+    { name: 'Vereine', href: '/clubs' },
+    { name: 'Vereinsanträge', href: '/club-registrations' },
+    { name: 'Warteschlange', href: '/queue' },
+    { name: 'AV-Verträge', href: '/dpa' },
+    { name: 'Speicher', href: '/club-storage' },
+    { name: 'Löschläufe', href: '/retention-runs' },
 ];
+
+/**
+ * Open (pending) club registrations for the nav badge, from the backend's
+ * `GET /admin/club-stats` (`registrations.pending`). Fetched on mount, when the
+ * tab becomes visible/focused again, and after a decision (REGISTRATIONS_CHANGED_EVENT).
+ * Best effort: on failure the previous value is kept.
+ */
+function usePendingRegistrations(): number {
+    const [count, setCount] = useState(0);
+    useEffect(() => {
+        let cancelled = false;
+        function load() {
+            fetch(`${backendUrl}/admin/club-stats`, { credentials: 'include' })
+                .then((res) => (res.ok ? (res.json() as Promise<{ registrations?: { pending?: number } }>) : null))
+                .then((body) => {
+                    const pending = body?.registrations?.pending;
+                    if (!cancelled && typeof pending === 'number') setCount(pending);
+                })
+                .catch(() => undefined);
+        }
+        function onVisibility() {
+            if (document.visibilityState === 'visible') load();
+        }
+        load();
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('focus', load);
+        window.addEventListener(REGISTRATIONS_CHANGED_EVENT, load);
+        return () => {
+            cancelled = true;
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('focus', load);
+            window.removeEventListener(REGISTRATIONS_CHANGED_EVENT, load);
+        };
+    }, []);
+    return count;
+}
+
+function PendingBadge({ count }: { count: number }) {
+    if (count === 0) return null;
+    return (
+        <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary-foreground">
+            {count}
+        </span>
+    );
+}
 
 /**
  * Every route in this app requires an admin session (see (protected)/layout.tsx),
@@ -30,6 +82,7 @@ export function Navbar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const pendingCount = usePendingRegistrations();
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
@@ -57,7 +110,7 @@ export function Navbar() {
                         <Logo />
                     </Link>
 
-                    <div className="hidden md:flex md:gap-6">
+                    <div className="hidden lg:flex lg:gap-5">
                         {NAV_LINKS.map((link) => {
                             const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
                             return (
@@ -69,6 +122,7 @@ export function Navbar() {
                                     }`}
                                 >
                                     {link.name}
+                                    {link.href === '/club-registrations' && <PendingBadge count={pendingCount} />}
                                 </Link>
                             );
                         })}
@@ -79,7 +133,7 @@ export function Navbar() {
                     <ThemeToggle />
 
                     {!isPending && session && (
-                        <div className="relative hidden md:block" ref={menuRef}>
+                        <div className="relative hidden lg:block" ref={menuRef}>
                             <button
                                 onClick={() => setIsMenuOpen((v) => !v)}
                                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
@@ -119,7 +173,9 @@ export function Navbar() {
                     )}
 
                     <button
-                        className="flex md:hidden items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="flex min-h-11 min-w-11 lg:hidden items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-expanded={isMobileOpen}
+                        aria-label={isMobileOpen ? 'Menü schließen' : 'Menü öffnen'}
                         onClick={() => setIsMobileOpen((v) => !v)}
                     >
                         {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -128,7 +184,7 @@ export function Navbar() {
             </div>
 
             {isMobileOpen && (
-                <div className="md:hidden border-t border-border bg-background px-4 py-4 shadow-lg">
+                <div className="lg:hidden border-t border-border bg-background px-4 py-4 shadow-lg">
                     <div className="flex flex-col space-y-3">
                         {NAV_LINKS.map((link) => (
                             <Link
@@ -139,6 +195,7 @@ export function Navbar() {
                                 }`}
                             >
                                 {link.name}
+                                {link.href === '/club-registrations' && <PendingBadge count={pendingCount} />}
                             </Link>
                         ))}
                         {session && (
