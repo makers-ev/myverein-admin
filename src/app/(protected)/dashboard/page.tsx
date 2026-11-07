@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { Ban, Building2, ClipboardList, Repeat, Shield, UserCheck, UserPlus, Users } from 'lucide-react';
+import { Ban, Bell, BellOff, Building2, ClipboardList, Clock, Repeat, Shield, UserCheck, UserPlus, Users } from 'lucide-react';
 
 import { authClient, backendUrl } from '@/lib/auth-client';
 import { BarChart, type BarChartDatum } from '@/components/BarChart';
@@ -74,6 +74,25 @@ async function getClubStats(cookie: string): Promise<{ total: number | null; pen
     return { total: data?.clubs?.total ?? null, pending: data?.registrations?.pending ?? null };
 }
 
+interface PushStats {
+    windowDays: number;
+    sent: number;
+    failed: number;
+    pending: number;
+    overdue: number;
+    deliveryRate: number | null;
+    pushTokens: number;
+}
+
+/** `GET /admin/push-stats`: counts only, never recipients or texts. */
+async function getPushStats(cookie: string) {
+    const { data, error } = await authClient.$fetch<{ data: PushStats }>(`${backendUrl}/admin/push-stats`, { headers: { cookie } });
+    if (error) {
+        console.error('[dashboard] GET /admin/push-stats failed', error);
+    }
+    return data?.data ?? null;
+}
+
 function DeltaBadge({ changePercent }: { changePercent: number | null }) {
     if (changePercent === null) return null;
     const isPositive = changePercent >= 0;
@@ -135,10 +154,11 @@ export default async function DashboardPage({
     const incomingHeaders = await headers();
     const cookie = incomingHeaders.get('cookie') ?? '';
 
-    const [accounts, activity, clubStats] = await Promise.all([
+    const [accounts, activity, clubStats, push] = await Promise.all([
         getAccountCounts({ headers: { cookie } }),
         getActivityStats(interval, period, cookie),
         getClubStats(cookie),
+        getPushStats(cookie),
     ]);
 
     const chartData: BarChartDatum[] =
@@ -172,6 +192,22 @@ export default async function DashboardPage({
                 <StatCard icon={Building2} label="Vereine" value={clubStats.total ?? '–'} href="/clubs" />
                 <StatCard icon={ClipboardList} label="Offene Vereinsanträge" value={clubStats.pending ?? '–'} href="/club-registrations" />
             </div>
+
+            <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Push notifications (last 7 days)</h2>
+            {push ? (
+                <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <StatCard icon={Bell} label="Sent" value={push.sent} />
+                    <StatCard icon={BellOff} label="Failed" value={push.failed} />
+                    <StatCard icon={Clock} label="Pending / overdue" value={push.overdue} />
+                    <div className="rounded-xl border border-border bg-card p-6">
+                        <span className="text-sm font-medium text-muted-foreground">Delivery rate</span>
+                        <p className="mt-3 text-3xl font-bold text-foreground">{push.deliveryRate === null ? '-' : `${push.deliveryRate}%`}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{push.pushTokens} registered devices, {push.pending} waiting</p>
+                    </div>
+                </div>
+            ) : (
+                <p className="mt-3 text-sm text-destructive">Could not load push stats.</p>
+            )}
 
             <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Users</h2>
             {activity ? (
