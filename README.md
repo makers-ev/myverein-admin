@@ -76,6 +76,7 @@ _template_better-auth-admin/
 │   │       │   └── [id]/              # detail + RegistrationReview.tsx (documents, slug, approve/request-info/reject)
 │   │       ├── queue/                # job queue overview (page, RetryJobButton, loading, error)
 │   │       ├── dpa/                  # AV-Vertrag versions + club acceptance (page, new/, [id]/, DpaForm)
+│   │       ├── clubs/                # club list + [id] detail (ClubSuspension, PlanEditor)
 │   │       ├── retention-runs/       # read-only retention run log (page, loading, error)
 │   │       └── settings/               # the SIGNED-IN admin's own account (password, 2FA)
 │   └── proxy.ts                     # CSP + host-header validation, runs before every request

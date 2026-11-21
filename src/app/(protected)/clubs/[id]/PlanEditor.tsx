@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { adminJson } from '@/lib/adminApi';
@@ -17,6 +17,7 @@ export function PlanEditor({ clubId, plan }: { clubId: string; plan: (ClubPlan &
     const [limit, setLimit] = useState(plan?.memberLimit != null ? String(plan.memberLimit) : '');
     const [note, setNote] = useState(plan?.note ?? '');
     const [busy, setBusy] = useState(false);
+    const inFlight = useRef(false);
     const [error, setError] = useState<string | null>(null);
     const [saved, setSaved] = useState<string | null>(null);
 
@@ -26,6 +27,8 @@ export function PlanEditor({ clubId, plan }: { clubId: string; plan: (ClubPlan &
     };
 
     async function run(action: () => Promise<unknown>, done: string, fallback: string) {
+        if (inFlight.current) return;
+        inFlight.current = true;
         setBusy(true);
         setError(null);
         try {
@@ -35,6 +38,7 @@ export function PlanEditor({ clubId, plan }: { clubId: string; plan: (ClubPlan &
         } catch (err) {
             setError(clubErrorText(err, fallback));
         } finally {
+            inFlight.current = false;
             setBusy(false);
         }
     }

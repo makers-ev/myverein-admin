@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Dialog } from '@/components/Dialog';
@@ -18,6 +18,8 @@ export function ClubSuspension({ clubId, clubName, status }: { clubId: string; c
     const [note, setNote] = useState('');
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [outsideError, setOutsideError] = useState<string | null>(null);
+    const inFlight = useRef(false);
 
     function close() {
         setOpen(false);
@@ -28,12 +30,13 @@ export function ClubSuspension({ clubId, clubName, status }: { clubId: string; c
 
     async function onSubmit(e: FormEvent) {
         e.preventDefault();
-        if (busy) return;
+        if (busy || inFlight.current) return;
         const problem = validateReason(reason);
         if (problem) {
             setError(problem);
             return;
         }
+        inFlight.current = true;
         setBusy(true);
         setError(null);
         try {
@@ -41,9 +44,17 @@ export function ClubSuspension({ clubId, clubName, status }: { clubId: string; c
             close();
             router.refresh();
         } catch (err) {
-            setError(clubErrorText(err, 'Die Aktion ist fehlgeschlagen. Bitte erneut versuchen.'));
-            if (isStateConflict(err)) router.refresh();
+            const text = clubErrorText(err, 'Die Aktion ist fehlgeschlagen. Bitte erneut versuchen.');
+            if (isStateConflict(err)) {
+                // The page state was stale: never let the dialog flip to the opposite action with the old reason.
+                close();
+                setOutsideError(text);
+                router.refresh();
+            } else {
+                setError(text);
+            }
         } finally {
+            inFlight.current = false;
             setBusy(false);
         }
     }
@@ -52,13 +63,16 @@ export function ClubSuspension({ clubId, clubName, status }: { clubId: string; c
         <>
             <button
                 type="button"
-                onClick={() => setOpen(true)}
+                onClick={() => { setOutsideError(null); setOpen(true); }}
                 className={`min-h-11 rounded-md px-4 py-2 text-sm font-semibold transition-colors ${suspended ? 'border border-border text-foreground hover:bg-muted' : 'bg-destructive text-white hover:opacity-90'}`}
             >
                 {suspended ? 'Sperre aufheben' : 'Verein sperren'}
             </button>
+            {outsideError && (
+                <p role="alert" className="mt-2 w-full text-sm text-destructive">{outsideError}</p>
+            )}
             {open && (
-                <Dialog title={suspended ? `Sperre für ${clubName} aufheben?` : `${clubName} sperren?`} onClose={close} busy={busy}>
+                <Dialog dirty={reason.trim() !== '' || note.trim() !== ''} title={suspended ? `Sperre für ${clubName} aufheben?` : `${clubName} sperren?`} onClose={close} busy={busy}>
                     <form onSubmit={onSubmit} noValidate>
                         <p className="mt-2 text-sm text-muted-foreground">
                             {suspended
@@ -76,7 +90,7 @@ export function ClubSuspension({ clubId, clubName, status }: { clubId: string; c
                             maxLength={MAX_SUSPEND_REASON}
                             required
                             aria-required="true"
-                            aria-describedby="club-reason-hint"
+                            aria-describedby={error ? 'club-reason-hint club-dialog-error' : 'club-reason-hint'}
                             aria-invalid={error ? true : undefined}
                             className={`mt-1 ${inputClass}`}
                         />
@@ -93,7 +107,7 @@ export function ClubSuspension({ clubId, clubName, status }: { clubId: string; c
                             </>
                         )}
                         {error && (
-                            <p role="alert" className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                            <p id="club-dialog-error" role="alert" className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                                 {error}
                             </p>
                         )}

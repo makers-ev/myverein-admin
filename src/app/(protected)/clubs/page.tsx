@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 
 import { Pager } from '@/components/Pager';
 import { adminGetServer } from '@/lib/adminApi';
-import { CLUBS_PAGE_SIZE, CLUB_STATUS_LABELS, STATUS_FILTERS, type AdminClubList, clubsHref, formatDay, formatDateTime, planExpired } from '@/lib/adminClubs';
+import { CLUBS_PAGE_SIZE, CLUB_STATUS_LABELS, STATUS_FILTERS, type AdminClubList, clubsHref, formatDay, formatDateTime, planExpired, loadErrorText } from '@/lib/adminClubs';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +24,8 @@ export default async function ClubsPage({ searchParams }: { searchParams: Promis
     const params = new URLSearchParams({ page: String(pageNum), pageSize: String(CLUBS_PAGE_SIZE) });
     if (query) params.set('q', query);
     if (status) params.set('status', status);
-    const { body, error } = await adminGetServer<AdminClubList>(`/admin/clubs?${params}`, incomingHeaders.get('cookie') ?? '');
+    const { body, error: rawError, status: loadStatus } = await adminGetServer<AdminClubList>(`/admin/clubs?${params}`, incomingHeaders.get('cookie') ?? '');
+    const error = rawError ? loadErrorText(loadStatus) : null;
     // Page number beyond the last page while clubs exist: clamp to the last page instead of showing a misleading empty table.
     if (body && body.total > 0) {
         const lastPage = Math.ceil(body.total / CLUBS_PAGE_SIZE);

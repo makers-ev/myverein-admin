@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { clubErrorText, clubsHref, isStateConflict, parsePlanForm, planExpired, validateReason } from './adminClubs';
+import { auditLabel, byActor, clubErrorText, loadErrorText, safePortalUrl, clubsHref, isStateConflict, parsePlanForm, planExpired, validateReason } from './adminClubs';
 
 describe('validateReason', () => {
     it('requires a trimmed reason of at least 10 characters', () => {
@@ -52,5 +52,40 @@ describe('clubsHref', () => {
         expect(clubsHref({})).toBe('/clubs');
         expect(clubsHref({ q: 'tsv', status: 'suspended', page: 2 })).toBe('/clubs?q=tsv&status=suspended&page=2');
         expect(clubsHref({ page: 1 })).toBe('/clubs');
+    });
+});
+
+describe('safePortalUrl', () => {
+    it('accepts only https URLs, else falls back', () => {
+        expect(safePortalUrl('https://www.handelsregister.de/x')).toBe('https://www.handelsregister.de/x');
+        expect(safePortalUrl('javascript:alert(1)')).toBe('https://www.handelsregister.de/rp_web/erweitertesuche.xhtml');
+        expect(safePortalUrl('http://example.org')).toContain('handelsregister.de');
+        expect(safePortalUrl('nonsense')).toContain('handelsregister.de');
+        expect(safePortalUrl(null)).toContain('handelsregister.de');
+    });
+});
+
+describe('display helpers', () => {
+    it('hides blank actor names and unknown audit types', () => {
+        expect(byActor({ name: '' })).toBe('');
+        expect(byActor(null)).toBe('');
+        expect(byActor({ name: ' Ada ' })).toBe(' durch Ada');
+        expect(auditLabel('admin.something_new')).toBe('Sonstiger Eintrag');
+        expect(auditLabel('admin.club_suspend')).toBe('Verein gesperrt');
+    });
+    it('maps load failures to fixed texts', () => {
+        expect(loadErrorText(0)).toContain('nicht erreichbar');
+        expect(loadErrorText(500)).not.toContain('undefined');
+        expect(loadErrorText(403)).toContain('Berechtigung');
+    });
+    it('treats only the two 409 codes as state conflicts', () => {
+        expect(isStateConflict({ status: 409, detailsCode: 'club_already_suspended' })).toBe(true);
+        expect(isStateConflict({ status: 409, detailsCode: 'other' })).toBe(false);
+    });
+    it('evaluates plan expiry on the Berlin calendar day', () => {
+        const plan = { tier: 'a', validFrom: null, validUntil: '2026-11-20', memberLimit: null };
+        // 23:30 UTC on the 20th is already the 21st in Berlin
+        expect(planExpired(plan, new Date('2026-11-20T23:30:00Z'))).toBe(true);
+        expect(planExpired(plan, new Date('2026-11-20T22:30:00Z'))).toBe(false);
     });
 });

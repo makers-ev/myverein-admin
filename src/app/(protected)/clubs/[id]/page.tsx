@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 
 import { adminGetServer } from '@/lib/adminApi';
-import { ACTION_LABELS, type AdminClubDetail, CLUB_STATUS_LABELS, REGISTER_PORTAL_URL, auditLabel, formatDateTime, formatDay, planExpired } from '@/lib/adminClubs';
+import { ACTION_LABELS, type AdminClubDetail, CLUB_STATUS_LABELS, auditLabel, formatDateTime, formatDay, planExpired, loadErrorText, safePortalUrl, byActor } from '@/lib/adminClubs';
 import { LEGAL_FORM_LABELS, label } from '@/lib/clubRegistrations';
 import { ClubSuspension } from './ClubSuspension';
 import { PlanEditor } from './PlanEditor';
@@ -32,8 +32,9 @@ function Field({ name, children }: { name: string; children: React.ReactNode }) 
 export default async function ClubDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
     const incomingHeaders = await headers();
-    const { body, error, status } = await adminGetServer<{ data: AdminClubDetail }>(`/admin/clubs/${encodeURIComponent(id)}`, incomingHeaders.get('cookie') ?? '');
+    const { body, error: rawError, status } = await adminGetServer<{ data: AdminClubDetail }>(`/admin/clubs/${encodeURIComponent(id)}`, incomingHeaders.get('cookie') ?? '');
     if (status === 404) notFound();
+    const error = rawError ? loadErrorText(status) : null;
 
     const back = (
         <Link href="/clubs" className="flex min-h-11 items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -56,7 +57,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
     const club = body.data;
     const suspended = club.status === 'suspended';
     const reg = club.registration;
-    const portalUrl = club.registerCheck?.portalUrl ?? REGISTER_PORTAL_URL;
+    const portalUrl = safePortalUrl(club.registerCheck?.portalUrl);
 
     return (
         <div className="max-w-3xl">
@@ -81,7 +82,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
                         <p className="mt-1">Grund: {club.suspension.reason}</p>
                         <p className="mt-1 text-muted-foreground">
                             Seit {formatDateTime(club.suspension.suspendedAt)}
-                            {club.suspension.suspendedBy ? ` durch ${club.suspension.suspendedBy.name}` : ''}.
+                            {byActor(club.suspension.suspendedBy)}.
                         </p>
                         <p className="mt-1">Hinweis für Mitglieder: {club.suspension.note ?? 'keiner'}</p>
                         <p className="mt-3 text-muted-foreground">
@@ -143,7 +144,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
                     ) : (
                         <p className="mb-4 text-sm text-muted-foreground">Noch kein Tarif hinterlegt.</p>
                     )}
-                    <PlanEditor clubId={club.clubId} plan={club.plan} />
+                    <PlanEditor key={club.plan?.updatedAt ?? 'none'} clubId={club.clubId} plan={club.plan} />
                     <p className="mt-3 text-xs text-muted-foreground">Nur Stammdaten. MyVerein rechnet nicht ab, Rechnungen laufen außerhalb.</p>
                 </Section>
 
@@ -157,7 +158,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
                                     <p className="font-medium text-foreground">{ACTION_LABELS[h.action]}</p>
                                     <p className="text-xs text-muted-foreground">
                                         {formatDateTime(h.createdAt)}
-                                        {h.actor ? ` · ${h.actor.name}` : ''}
+                                        {byActor(h.actor, ' · ')}
                                     </p>
                                     <p className="mt-0.5 text-foreground">Grund: {h.reason}</p>
                                     {h.note && <p className="text-muted-foreground">Hinweis für Mitglieder: {h.note}</p>}

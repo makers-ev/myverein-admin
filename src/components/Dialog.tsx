@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
-/** Modal dialog: focus moves in, Tab/Shift+Tab cycle inside, Escape and backdrop click close (unless `busy`), focus returns on close. */
-export function Dialog({ title, children, onClose, busy = false }: { title: string; children: React.ReactNode; onClose: () => void; busy?: boolean }) {
+/** Modal dialog (portal to body, rest of the page `inert`): focus moves to the first field, Tab/Shift+Tab cycle inside, Escape closes (unless `busy`), backdrop click only when nothing was entered (`dirty` false), focus returns on close. */
+export function Dialog({ title, children, onClose, busy = false, dirty = false }: { title: string; children: React.ReactNode; onClose: () => void; busy?: boolean; dirty?: boolean }) {
     const ref = useRef<HTMLDivElement>(null);
     const titleId = useId();
     const busyRef = useRef(busy);
@@ -16,7 +17,16 @@ export function Dialog({ title, children, onClose, busy = false }: { title: stri
 
     useEffect(() => {
         const previouslyFocused = document.activeElement as HTMLElement | null;
-        ref.current?.focus();
+        const first = ref.current?.querySelector<HTMLElement>('input:not([disabled]), textarea:not([disabled]), select:not([disabled])');
+        (first ?? ref.current)?.focus();
+        const host = ref.current?.parentElement ?? null;
+        const inerted: HTMLElement[] = [];
+        for (const el of Array.from(document.body.children)) {
+            if (el !== host && el instanceof HTMLElement && !el.inert) {
+                el.inert = true;
+                inerted.push(el);
+            }
+        }
         function onKey(e: KeyboardEvent) {
             if (e.key === 'Escape' && !busyRef.current) {
                 onCloseRef.current();
@@ -46,21 +56,23 @@ export function Dialog({ title, children, onClose, busy = false }: { title: stri
         document.addEventListener('keydown', onKey);
         return () => {
             document.removeEventListener('keydown', onKey);
+            for (const el of inerted) el.inert = false;
             previouslyFocused?.focus?.();
         };
     }, []);
 
-    return (
+    return createPortal(
         <div
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
             onMouseDown={(e) => {
-                if (e.target === e.currentTarget && !busy) onClose();
+                if (e.target === e.currentTarget && !busy && !dirty) onClose();
             }}
         >
             <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId} className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-lg outline-none">
                 <h3 id={titleId} className="text-lg font-semibold text-foreground">{title}</h3>
                 {children}
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

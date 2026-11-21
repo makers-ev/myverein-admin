@@ -96,7 +96,7 @@ export function isStateConflict(err: unknown): boolean {
 }
 
 export function auditLabel(eventType: string): string {
-    return AUDIT_EVENT_LABELS[eventType] ?? eventType;
+    return AUDIT_EVENT_LABELS[eventType] ?? 'Sonstiger Eintrag';
 }
 
 export function formatDay(iso: string | null): string {
@@ -112,10 +112,39 @@ export function formatDateTime(iso: string | null): string {
 }
 
 /** True once a plan's end date lies before `now` (the day itself still counts as valid). */
+function berlinDay(d: Date): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+}
+
+/** True once a plan's end date lies before today (Berlin calendar day; the end day itself still counts as valid). */
 export function planExpired(plan: ClubPlan | null, now: Date = new Date()): boolean {
     if (!plan?.validUntil) return false;
-    const end = new Date(`${plan.validUntil.slice(0, 10)}T23:59:59.999Z`);
-    return !Number.isNaN(end.getTime()) && end.getTime() < now.getTime();
+    const end = plan.validUntil.slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(end) && end < berlinDay(now);
+}
+
+/** Register portal link from the backend, only if it is a valid https URL; otherwise the constant fallback. */
+export function safePortalUrl(url: string | null | undefined): string {
+    if (!url) return REGISTER_PORTAL_URL;
+    try {
+        const u = new URL(url);
+        return u.protocol === 'https:' ? u.toString() : REGISTER_PORTAL_URL;
+    } catch {
+        return REGISTER_PORTAL_URL;
+    }
+}
+
+/** " durch Name" only for a non-blank name. */
+export function byActor(actor: { name: string } | null | undefined, prefix = ' durch '): string {
+    const n = actor?.name?.trim();
+    return n ? `${prefix}${n}` : '';
+}
+
+/** Fixed German text for a failed server-side load (status 0 = backend unreachable); the backend message is never shown. */
+export function loadErrorText(status: number): string {
+    if (status === 0) return 'Das Backend ist nicht erreichbar.';
+    if (status >= 500) return 'Das Backend hat einen Fehler gemeldet. Bitte später erneut versuchen.';
+    return clubErrorText({ status }, 'Die Daten konnten nicht geladen werden.');
 }
 
 export function validateReason(input: string): string | null {
