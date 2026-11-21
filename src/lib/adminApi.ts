@@ -2,14 +2,14 @@ import { backendUrl } from '@/lib/auth-client';
 import { toApiError } from '@/lib/clubRegistrations';
 
 /** Server-side GET against an `/admin/...` backend route: forwards the admin's cookie, never cached. */
-export async function adminGetServer<T>(path: string, cookie: string): Promise<{ body: T | null; error: string | null }> {
+export async function adminGetServer<T>(path: string, cookie: string): Promise<{ body: T | null; error: string | null; status: number }> {
     try {
         const res = await fetch(`${backendUrl}${path}`, { headers: { cookie }, cache: 'no-store' });
-        if (!res.ok) return { body: null, error: (await toApiError(res)).message };
-        return { body: (await res.json()) as T, error: null };
+        if (!res.ok) return { body: null, error: (await toApiError(res)).message, status: res.status };
+        return { body: (await res.json()) as T, error: null, status: res.status };
     } catch (err) {
         console.error(`[admin] GET ${path} failed`, err);
-        return { body: null, error: 'Das Backend ist nicht erreichbar.' };
+        return { body: null, error: 'Das Backend ist nicht erreichbar.', status: 0 };
     }
 }
 
