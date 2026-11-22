@@ -107,22 +107,31 @@ export function formatBytes(bytes: number): string {
 /** Backend error envelope: `{ error: { code, message } }` (see backend `AppError.toJSON`). */
 export class ApiError extends Error {
     readonly status: number;
-    constructor(status: number, message: string) {
+    /** `error.code` of the backend envelope and `error.details.code`, when present. */
+    readonly code: string | null;
+    readonly detailsCode: string | null;
+    constructor(status: number, message: string, code: string | null = null, detailsCode: string | null = null) {
         super(message);
         this.name = 'ApiError';
         this.status = status;
+        this.code = code;
+        this.detailsCode = detailsCode;
     }
 }
 
 export async function toApiError(res: Response): Promise<ApiError> {
     let message = `Anfrage fehlgeschlagen (${res.status}).`;
+    let code: string | null = null;
+    let detailsCode: string | null = null;
     try {
-        const body = (await res.json()) as { error?: { message?: string } };
+        const body = (await res.json()) as { error?: { message?: string; code?: string; details?: { code?: string } } };
         if (body?.error?.message) message = body.error.message;
+        code = body?.error?.code ?? null;
+        detailsCode = body?.error?.details?.code ?? null;
     } catch {
         // non-JSON body: keep the generic message
     }
-    return new ApiError(res.status, message);
+    return new ApiError(res.status, message, code, detailsCode);
 }
 
 /** Browser-side call against the admin review API; throws `ApiError` on a non-2xx response. */
