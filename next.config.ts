@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Required for Dockerfile's multi-stage build (copies .next/standalone).
   output: "standalone",
+  allowedDevOrigins: ['10.20.52.174'],
   async headers() {
     return [
       {

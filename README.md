@@ -201,6 +201,17 @@ Color theme lives entirely in `src/app/globals.css` (semantic tokens:
 (multi-stage build off a shared `Dockerfile.base` image, port 3002 instead
 of 3001).
 
+`NEXT_PUBLIC_*` values are inlined into the client bundle **at build time**,
+and `.dockerignore` excludes `.env`, so `Dockerfile.admin` declares them as
+`ARG`s with the production values as defaults (backend
+`https://api.myverein.lpj.app`, website `https://myverein.lpj.app`, branding
+as in `.env.example`). A plain
+`docker build --network=host -f Dockerfile.admin -t registry.lpj.app/myverein/admin:<tag> .`
+is enough; override one with `--build-arg NAME=value` (e.g. staging). Keep the
+defaults in sync with `.env.example`, and never pass an empty value (it would
+override the defaults in `src/config/site.ts`). Runtime-only `ALLOWED_HOSTS`
+is a normal container env var.
+
 ## Security notes
 
 - CSP + host-header validation via `src/proxy.ts`, identical mechanism to

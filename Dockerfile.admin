@@ -14,6 +14,27 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 
+# NEXT_PUBLIC_* are inlined into the client bundle at build time, and .env is
+# excluded by .dockerignore -- so they are set here, with the production values
+# as defaults: a plain `docker build --network=host -f Dockerfile.admin
+# -t registry.lpj.app/myverein/admin:<tag> .` is enough. Override one with
+# `--build-arg NAME=value` (e.g. for staging). Keep in sync with .env.example.
+# Never leave one empty: "" would override the defaults in src/config/site.ts.
+ARG NEXT_PUBLIC_BACKEND_URL=https://api.myverein.lpj.app
+ARG NEXT_PUBLIC_WEBSITE_URL=https://myverein.lpj.app
+ARG NEXT_PUBLIC_APP_NAME=Admin
+ARG NEXT_PUBLIC_LOGO_SRC=/logo.svg
+ARG NEXT_PUBLIC_APP_TAGLINE="User & access management"
+ARG NEXT_PUBLIC_LOGIN_TITLE="Sign in"
+ARG NEXT_PUBLIC_LOGIN_SUBTITLE="Admin access only."
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL \
+    NEXT_PUBLIC_WEBSITE_URL=$NEXT_PUBLIC_WEBSITE_URL \
+    NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME \
+    NEXT_PUBLIC_LOGO_SRC=$NEXT_PUBLIC_LOGO_SRC \
+    NEXT_PUBLIC_APP_TAGLINE=$NEXT_PUBLIC_APP_TAGLINE \
+    NEXT_PUBLIC_LOGIN_TITLE=$NEXT_PUBLIC_LOGIN_TITLE \
+    NEXT_PUBLIC_LOGIN_SUBTITLE=$NEXT_PUBLIC_LOGIN_SUBTITLE
+
 # Build the application
 RUN npm run build
 
